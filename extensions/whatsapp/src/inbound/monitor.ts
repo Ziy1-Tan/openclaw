@@ -326,11 +326,42 @@ export async function monitorWebInbox(options: {
         logVerbose(`Presence update failed: ${String(err)}`);
       }
     };
-    const reply = async (text: string) => {
-      await sock.sendMessage(chatJid, { text });
+    const reply = async (text: string, opts?: { replyToId?: string; mentionedJids?: string[] }) => {
+      const contextInfo = opts?.mentionedJids?.length
+        ? { mentionedJid: opts.mentionedJids }
+        : undefined;
+      const msgContent: AnyMessageContent = { text, ...(contextInfo ? { contextInfo } : {}) };
+      const options = opts?.replyToId
+        ? {
+            quoted: {
+              key: { remoteJid: chatJid, id: opts.replyToId },
+              message: { conversation: text },
+            } as WAMessage,
+          }
+        : {};
+      await sock.sendMessage(chatJid, msgContent, options);
     };
-    const sendMedia = async (payload: AnyMessageContent) => {
-      await sock.sendMessage(chatJid, payload);
+    const sendMedia = async (
+      payload: AnyMessageContent,
+      opts?: { replyToId?: string; mentionedJids?: string[] },
+    ) => {
+      const contextInfo = opts?.mentionedJids?.length
+        ? { mentionedJid: opts.mentionedJids }
+        : undefined;
+      const msgContent: AnyMessageContent = {
+        ...payload,
+        ...(contextInfo ? { contextInfo } : {}),
+      };
+      const quotedText = (payload as { caption?: string }).caption ?? "";
+      const options = opts?.replyToId
+        ? {
+            quoted: {
+              key: { remoteJid: chatJid, id: opts.replyToId },
+              message: { conversation: quotedText },
+            } as WAMessage,
+          }
+        : {};
+      await sock.sendMessage(chatJid, msgContent, options);
     };
     const timestamp = inbound.messageTimestampMs;
     const mentionedJids = extractMentionedJids(msg.message as proto.IMessage | undefined);
@@ -452,7 +483,14 @@ export async function monitorWebInbox(options: {
 
   const sendApi = createWebSendApi({
     sock: {
-      sendMessage: (jid: string, content: AnyMessageContent) => sock.sendMessage(jid, content),
+      sendMessage: (
+        jid: string,
+        content: AnyMessageContent,
+        options?: Parameters<typeof sock.sendMessage>[2],
+      ) =>
+        options !== undefined
+          ? sock.sendMessage(jid, content, options)
+          : sock.sendMessage(jid, content),
       sendPresenceUpdate: (presence, jid?: string) => sock.sendPresenceUpdate(presence, jid),
     },
     defaultAccountId: options.accountId,

@@ -34,8 +34,11 @@ export type WebInboundMessage = {
   fromMe?: boolean;
   location?: NormalizedLocation;
   sendComposing: () => Promise<void>;
-  reply: (text: string) => Promise<void>;
-  sendMedia: (payload: AnyMessageContent) => Promise<void>;
+  reply: (text: string, opts?: { replyToId?: string; mentionedJids?: string[] }) => Promise<void>;
+  sendMedia: (
+    payload: AnyMessageContent,
+    opts?: { replyToId?: string; mentionedJids?: string[] },
+  ) => Promise<void>;
   mediaPath?: string;
   mediaType?: string;
   mediaFileName?: string;

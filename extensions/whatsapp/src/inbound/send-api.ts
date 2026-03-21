@@ -1,4 +1,10 @@
-import type { AnyMessageContent, WAPresence } from "@whiskeysockets/baileys";
+import type {
+  AnyMessageContent,
+  MiscMessageGenerationOptions,
+  WAMessage,
+  WAPresence,
+  proto,
+} from "@whiskeysockets/baileys";
 import { recordChannelActivity } from "openclaw/plugin-sdk/infra-runtime";
 import { toWhatsappJid } from "openclaw/plugin-sdk/text-runtime";
 import type { ActiveWebSendOptions } from "../active-listener.js";
@@ -19,7 +25,11 @@ function resolveOutboundMessageId(result: unknown): string {
 
 export function createWebSendApi(params: {
   sock: {
-    sendMessage: (jid: string, content: AnyMessageContent) => Promise<unknown>;
+    sendMessage: (
+      jid: string,
+      content: AnyMessageContent,
+      options?: MiscMessageGenerationOptions,
+    ) => Promise<unknown>;
     sendPresenceUpdate: (presence: WAPresence, jid?: string) => Promise<unknown>;
   };
   defaultAccountId: string;
@@ -33,6 +43,9 @@ export function createWebSendApi(params: {
       sendOptions?: ActiveWebSendOptions,
     ): Promise<{ messageId: string }> => {
       const jid = toWhatsappJid(to);
+      const replyToId = sendOptions?.replyToId;
+      const mentionedJids = sendOptions?.mentionedJids?.map(toWhatsappJid);
+      const contextInfo = mentionedJids?.length ? { mentionedJid: mentionedJids } : undefined;
       let payload: AnyMessageContent;
       if (mediaBuffer && mediaType) {
         if (mediaType.startsWith("image/")) {
@@ -40,9 +53,15 @@ export function createWebSendApi(params: {
             image: mediaBuffer,
             caption: text || undefined,
             mimetype: mediaType,
+            ...(contextInfo ? { contextInfo } : {}),
           };
         } else if (mediaType.startsWith("audio/")) {
-          payload = { audio: mediaBuffer, ptt: true, mimetype: mediaType };
+          payload = {
+            audio: mediaBuffer,
+            ptt: true,
+            mimetype: mediaType,
+            ...(contextInfo ? { contextInfo } : {}),
+          };
         } else if (mediaType.startsWith("video/")) {
           const gifPlayback = sendOptions?.gifPlayback;
           payload = {
@@ -50,6 +69,7 @@ export function createWebSendApi(params: {
             caption: text || undefined,
             mimetype: mediaType,
             ...(gifPlayback ? { gifPlayback: true } : {}),
+            ...(contextInfo ? { contextInfo } : {}),
           };
         } else {
           const fileName = sendOptions?.fileName?.trim() || "file";
@@ -58,12 +78,21 @@ export function createWebSendApi(params: {
             fileName,
             caption: text || undefined,
             mimetype: mediaType,
+            ...(contextInfo ? { contextInfo } : {}),
           };
         }
       } else {
-        payload = { text };
+        payload = { text, ...(contextInfo ? { contextInfo } : {}) };
       }
-      const result = await params.sock.sendMessage(jid, payload);
+      const options = replyToId
+        ? {
+            quoted: {
+              key: { remoteJid: jid, id: replyToId },
+              message: { conversation: text },
+            } as WAMessage,
+          }
+        : {};
+      const result = await params.sock.sendMessage(jid, payload, options);
       const accountId = sendOptions?.accountId ?? params.defaultAccountId;
       recordWhatsAppOutbound(accountId);
       const messageId = resolveOutboundMessageId(result);

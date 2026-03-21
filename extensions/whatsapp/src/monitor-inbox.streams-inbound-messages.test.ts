@@ -51,9 +51,13 @@ describe("web monitor inbox", () => {
         replyToSender: "+111",
       }),
     );
-    expect(sock.sendMessage).toHaveBeenCalledWith("999@s.whatsapp.net", {
-      text: "pong",
-    });
+    expect(sock.sendMessage).toHaveBeenCalledWith(
+      "999@s.whatsapp.net",
+      {
+        text: "pong",
+      },
+      {},
+    );
 
     await listener.close();
   }
@@ -90,9 +94,13 @@ describe("web monitor inbox", () => {
     ]);
     expect(sock.sendPresenceUpdate).toHaveBeenCalledWith("available");
     expect(sock.sendPresenceUpdate).toHaveBeenCalledWith("composing", "999@s.whatsapp.net");
-    expect(sock.sendMessage).toHaveBeenCalledWith("999@s.whatsapp.net", {
-      text: "pong",
-    });
+    expect(sock.sendMessage).toHaveBeenCalledWith(
+      "999@s.whatsapp.net",
+      {
+        text: "pong",
+      },
+      {},
+    );
 
     await listener.close();
   });

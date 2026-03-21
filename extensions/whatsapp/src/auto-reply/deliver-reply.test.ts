@@ -107,6 +107,7 @@ describe("deliverWebReply", () => {
     expect(msg.reply).toHaveBeenCalledTimes(1);
     expect(msg.reply).toHaveBeenCalledWith(
       "Intro line\nReasoning: appears in content but is not a prefix",
+      expect.objectContaining({ replyToId: undefined }),
     );
   });
 
@@ -123,8 +124,14 @@ describe("deliverWebReply", () => {
     });
 
     expect(msg.reply).toHaveBeenCalledTimes(2);
-    expect(msg.reply).toHaveBeenNthCalledWith(1, "aaa");
-    expect(msg.reply).toHaveBeenNthCalledWith(2, "aaa");
+    expect((msg.reply as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]).toEqual([
+      "aaa",
+      expect.objectContaining({ replyToId: undefined }),
+    ]);
+    expect((msg.reply as unknown as { mock: { calls: unknown[][] } }).mock.calls[1]).toEqual([
+      "aaa",
+      expect.objectContaining({ replyToId: undefined }),
+    ]);
     expect(replyLogger.info).toHaveBeenCalledWith(expect.any(Object), "auto-reply sent (text)");
   });
 
@@ -175,8 +182,12 @@ describe("deliverWebReply", () => {
         caption: "aaa",
         mimetype: "image/jpeg",
       }),
+      expect.objectContaining({ replyToId: undefined }),
     );
-    expect(msg.reply).toHaveBeenCalledWith("aaa");
+    expect(msg.reply).toHaveBeenCalledWith(
+      "aaa",
+      expect.objectContaining({ replyToId: undefined }),
+    );
     expect(replyLogger.info).toHaveBeenCalledWith(expect.any(Object), "auto-reply sent (media)");
     expect(logVerbose).toHaveBeenCalled();
   });
@@ -220,6 +231,9 @@ describe("deliverWebReply", () => {
     expect(
       String((msg.reply as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]?.[0]),
     ).toContain("⚠️ Media failed");
+    expect((msg.reply as unknown as { mock: { calls: unknown[][] } }).mock.calls[0]?.[1]).toEqual(
+      expect.objectContaining({ replyToId: undefined }),
+    );
     expect(replyLogger.warn).toHaveBeenCalledWith(
       expect.objectContaining({ mediaUrl: "http://example.com/img.jpg" }),
       "failed to send web media reply",
@@ -252,6 +266,7 @@ describe("deliverWebReply", () => {
         mimetype: "audio/ogg",
         caption: "cap",
       }),
+      expect.objectContaining({ replyToId: undefined }),
     );
   });
 
@@ -280,6 +295,7 @@ describe("deliverWebReply", () => {
         caption: "cap",
         mimetype: "video/mp4",
       }),
+      expect.objectContaining({ replyToId: undefined }),
     );
   });
 
@@ -310,6 +326,7 @@ describe("deliverWebReply", () => {
         caption: "cap",
         mimetype: "application/octet-stream",
       }),
+      expect.objectContaining({ replyToId: undefined }),
     );
   });
 });

@@ -82,12 +82,16 @@ describe("web monitor inbox", () => {
       gifPlayback: true,
     });
 
-    expect(sock.sendMessage).toHaveBeenCalledWith("1555@s.whatsapp.net", {
-      video: buf,
-      caption: "gif",
-      mimetype: "video/mp4",
-      gifPlayback: true,
-    });
+    expect(sock.sendMessage).toHaveBeenCalledWith(
+      "1555@s.whatsapp.net",
+      {
+        video: buf,
+        caption: "gif",
+        mimetype: "video/mp4",
+        gifPlayback: true,
+      },
+      {},
+    );
 
     await listener.close();
   });

@@ -65,7 +65,7 @@ export function createWhatsAppOutboundBase({
     resolveTarget,
     ...createAttachedChannelResultAdapter({
       channel: "whatsapp",
-      sendText: async ({ cfg, to, text, accountId, deps, gifPlayback }) => {
+      sendText: async ({ cfg, to, text, accountId, deps, gifPlayback, replyToId }) => {
         const normalizedText = normalizeText(text);
         if (skipEmptyText && !normalizedText) {
           return { messageId: "" };
@@ -77,6 +77,7 @@ export function createWhatsAppOutboundBase({
           cfg,
           accountId: accountId ?? undefined,
           gifPlayback,
+          replyToId: replyToId ?? undefined,
         });
       },
       sendMedia: async ({
@@ -88,6 +89,7 @@ export function createWhatsAppOutboundBase({
         accountId,
         deps,
         gifPlayback,
+        replyToId,
       }) => {
         const send =
           resolveOutboundSendDep<WhatsAppSendMessage>(deps, "whatsapp") ?? sendMessageWhatsApp;
@@ -98,6 +100,7 @@ export function createWhatsAppOutboundBase({
           mediaLocalRoots,
           accountId: accountId ?? undefined,
           gifPlayback,
+          replyToId: replyToId ?? undefined,
         });
       },
       sendPoll: async ({ cfg, to, poll, accountId }) =>

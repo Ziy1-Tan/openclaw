@@ -6,6 +6,8 @@ export type ActiveWebSendOptions = {
   gifPlayback?: boolean;
   accountId?: string;
   fileName?: string;
+  replyToId?: string;
+  mentionedJids?: string[];
 };
 
 export type ActiveWebListener = {
@@ -15,6 +17,8 @@ export type ActiveWebListener = {
     mediaBuffer?: Buffer,
     mediaType?: string,
     options?: ActiveWebSendOptions,
+    replyToId?: string,
+    mentionedJids?: string[],
   ) => Promise<{ messageId: string }>;
   sendPoll: (to: string, poll: PollInput) => Promise<{ messageId: string }>;
   sendReaction: (

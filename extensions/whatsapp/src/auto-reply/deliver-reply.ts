@@ -57,6 +57,9 @@ export async function deliverWebReply(params: {
   );
   const textChunks = chunkMarkdownTextWithMode(convertedText, textLimit, chunkMode);
   const mediaList = resolveOutboundMediaUrls(replyResult);
+  const replyOpts = {
+    replyToId: replyResult.replyToId,
+  };
 
   const sendWithRetry = async (fn: () => Promise<unknown>, label: string, maxAttempts = 3) => {
     let lastErr: unknown;
@@ -86,7 +89,7 @@ export async function deliverWebReply(params: {
     const totalChunks = textChunks.length;
     for (const [index, chunk] of textChunks.entries()) {
       const chunkStarted = Date.now();
-      await sendWithRetry(() => msg.reply(chunk), "text");
+      await sendWithRetry(() => msg.reply(chunk, replyOpts), "text");
       if (!skipLog) {
         const durationMs = Date.now() - chunkStarted;
         whatsappOutboundLog.debug(
@@ -132,32 +135,41 @@ export async function deliverWebReply(params: {
       if (media.kind === "image") {
         await sendWithRetry(
           () =>
-            msg.sendMedia({
-              image: media.buffer,
-              caption,
-              mimetype: media.contentType,
-            }),
+            msg.sendMedia(
+              {
+                image: media.buffer,
+                caption,
+                mimetype: media.contentType,
+              },
+              replyOpts,
+            ),
           "media:image",
         );
       } else if (media.kind === "audio") {
         await sendWithRetry(
           () =>
-            msg.sendMedia({
-              audio: media.buffer,
-              ptt: true,
-              mimetype: media.contentType,
-              caption,
-            }),
+            msg.sendMedia(
+              {
+                audio: media.buffer,
+                ptt: true,
+                mimetype: media.contentType,
+                caption,
+              },
+              replyOpts,
+            ),
           "media:audio",
         );
       } else if (media.kind === "video") {
         await sendWithRetry(
           () =>
-            msg.sendMedia({
-              video: media.buffer,
-              caption,
-              mimetype: media.contentType,
-            }),
+            msg.sendMedia(
+              {
+                video: media.buffer,
+                caption,
+                mimetype: media.contentType,
+              },
+              replyOpts,
+            ),
           "media:video",
         );
       } else {
@@ -165,12 +177,15 @@ export async function deliverWebReply(params: {
         const mimetype = media.contentType ?? "application/octet-stream";
         await sendWithRetry(
           () =>
-            msg.sendMedia({
-              document: media.buffer,
-              fileName,
-              caption,
-              mimetype,
-            }),
+            msg.sendMedia(
+              {
+                document: media.buffer,
+                fileName,
+                caption,
+                mimetype,
+              },
+              replyOpts,
+            ),
           "media:document",
         );
       }
@@ -206,12 +221,12 @@ export async function deliverWebReply(params: {
         return;
       }
       whatsappOutboundLog.warn(`Media skipped; sent text-only to ${msg.from}`);
-      await msg.reply(fallbackText);
+      await msg.reply(fallbackText, replyOpts);
     },
   });
 
   // Remaining text chunks after media
   for (const chunk of remainingText) {
-    await msg.reply(chunk);
+    await msg.reply(chunk, replyOpts);
   }
 }

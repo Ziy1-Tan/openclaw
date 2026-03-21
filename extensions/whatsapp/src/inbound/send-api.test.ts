@@ -30,6 +30,7 @@ describe("createWebSendApi", () => {
         caption: "doc",
         mimetype: "application/pdf",
       }),
+      {},
     );
     expect(recordChannelActivity).toHaveBeenCalledWith({
       channel: "whatsapp",
@@ -49,12 +50,13 @@ describe("createWebSendApi", () => {
         caption: "doc",
         mimetype: "application/pdf",
       }),
+      {},
     );
   });
 
   it("sends plain text messages", async () => {
     await api.sendMessage("+1555", "hello");
-    expect(sendMessage).toHaveBeenCalledWith("1555@s.whatsapp.net", { text: "hello" });
+    expect(sendMessage).toHaveBeenCalledWith("1555@s.whatsapp.net", { text: "hello" }, {});
     expect(recordChannelActivity).toHaveBeenCalledWith({
       channel: "whatsapp",
       accountId: "main",
@@ -72,6 +74,7 @@ describe("createWebSendApi", () => {
         caption: "cap",
         mimetype: "image/jpeg",
       }),
+      {},
     );
   });
 
@@ -85,6 +88,7 @@ describe("createWebSendApi", () => {
         ptt: true,
         mimetype: "audio/ogg",
       }),
+      {},
     );
     expect(recordChannelActivity).toHaveBeenCalledWith({
       channel: "whatsapp",
@@ -104,6 +108,7 @@ describe("createWebSendApi", () => {
         mimetype: "video/mp4",
         gifPlayback: true,
       }),
+      {},
     );
   });
 
@@ -154,5 +159,61 @@ describe("createWebSendApi", () => {
   it("sends composing presence updates to the recipient JID", async () => {
     await api.sendComposingTo("+1555");
     expect(sendPresenceUpdate).toHaveBeenCalledWith("composing", "1555@s.whatsapp.net");
+  });
+
+  it("supports replyToId to quote a message", async () => {
+    await api.sendMessage("+1555", "hello", undefined, undefined, {
+      replyToId: "msg-quoted-123",
+    });
+    expect(sendMessage).toHaveBeenCalledWith(
+      "1555@s.whatsapp.net",
+      expect.objectContaining({ text: "hello" }),
+      expect.objectContaining({
+        quoted: expect.objectContaining({
+          key: expect.objectContaining({
+            remoteJid: "1555@s.whatsapp.net",
+            id: "msg-quoted-123",
+          }),
+        }),
+      }),
+    );
+  });
+
+  it("supports mentionedJids in contextInfo for text messages", async () => {
+    await api.sendMessage("+1555", "hello @user", undefined, undefined, {
+      mentionedJids: ["+1999@s.whatsapp.net"],
+    });
+    expect(sendMessage).toHaveBeenCalledWith(
+      "1555@s.whatsapp.net",
+      expect.objectContaining({
+        text: "hello @user",
+        contextInfo: { mentionedJid: ["+1999@s.whatsapp.net"] },
+      }),
+      {},
+    );
+  });
+
+  it("supports replyToId and mentionedJids together on media", async () => {
+    const payload = Buffer.from("img");
+    await api.sendMessage("1234567890", "hello", payload, "image/jpeg", {
+      replyToId: "quoted-msg",
+      mentionedJids: ["+1999@s.whatsapp.net"],
+    });
+    expect(sendMessage).toHaveBeenCalledWith(
+      "1234567890@s.whatsapp.net",
+      expect.objectContaining({
+        image: payload,
+        caption: "hello",
+        contextInfo: { mentionedJid: ["+1999@s.whatsapp.net"] },
+      }),
+      expect.objectContaining({
+        quoted: expect.objectContaining({
+          key: expect.objectContaining({
+            remoteJid: "1234567890@s.whatsapp.net",
+            id: "quoted-msg",
+          }),
+        }),
+      }),
+    );
   });
 });
