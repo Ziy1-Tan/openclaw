@@ -131,4 +131,51 @@ describe("redact-sink", () => {
     // Must not throw; fall through to plain sanitization which keeps enumerable keys.
     expect(sanitized.broken.safe).toBe("value");
   });
+
+  it("forces masking for nested objects under a credential-named parent key", () => {
+    // { token: { value: SECRET } } — the inner string must still be masked even though
+    // the key "value" is not itself a credential name.
+    const record = {
+      token: { value: SECRET },
+    };
+
+    const sanitized = sanitizeLogRecordForSink(record, resolved) as {
+      token: { value: string };
+    };
+
+    expect(sanitized.token.value).toBe(MASKED);
+    // Source must not be mutated.
+    expect(record.token.value).toBe(SECRET);
+  });
+
+  it("forces masking for array elements under a credential-named parent key", () => {
+    // { apiKey: [SECRET, SECRET] } — each array element string must be masked.
+    const record = {
+      apiKey: [SECRET, SECRET],
+    };
+
+    const sanitized = sanitizeLogRecordForSink(record, resolved) as {
+      apiKey: string[];
+    };
+
+    expect(sanitized.apiKey[0]).toBe(MASKED);
+    expect(sanitized.apiKey[1]).toBe(MASKED);
+  });
+
+  it("forces masking when a credential-named field holds a toJSON object", () => {
+    // { secret: { toJSON: () => SECRET } } — the serialized string must be masked.
+    const record = {
+      secret: {
+        toJSON() {
+          return SECRET;
+        },
+      },
+    };
+
+    const sanitized = sanitizeLogRecordForSink(record, resolved) as unknown as {
+      secret: string;
+    };
+
+    expect(sanitized.secret).toBe(MASKED);
+  });
 });

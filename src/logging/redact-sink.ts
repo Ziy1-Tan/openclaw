@@ -78,9 +78,11 @@ function sanitizeFieldValueForSink(
   resolved: ResolvedRedactOptions,
   seen: WeakSet<object>,
   depth: number,
+  inherited?: { allowDirectMask?: boolean },
 ): unknown {
+  const forceDirectMask = inherited?.allowDirectMask === true || isCredentialFieldName(key);
   if (typeof value === "string") {
-    if (isCredentialFieldName(key)) {
+    if (forceDirectMask) {
       const textSanitized = sanitizeStringForSink(value, resolved, { allowDirectMask: true });
       return textSanitized === value ? maskDirectSecret(value) : textSanitized;
     }
@@ -88,7 +90,13 @@ function sanitizeFieldValueForSink(
       allowDirectMask: shouldAllowDirectStringFallback(key),
     });
   }
-  return sanitizeValueForSink(value, resolved, seen, depth + 1);
+  return sanitizeValueForSink(
+    value,
+    resolved,
+    seen,
+    depth + 1,
+    forceDirectMask ? { allowDirectMask: true } : undefined,
+  );
 }
 
 function sanitizeErrorForSink(
@@ -127,6 +135,7 @@ function sanitizeRecordForSink(
   resolved: ResolvedRedactOptions,
   seen: WeakSet<object>,
   depth: number,
+  inherited?: { allowDirectMask?: boolean },
 ): JsonLikeRecord | string {
   if (seen.has(record)) {
     return CIRCULAR_SENTINEL;
@@ -135,7 +144,7 @@ function sanitizeRecordForSink(
   try {
     const out: JsonLikeRecord = {};
     for (const [key, value] of Object.entries(record)) {
-      out[key] = sanitizeFieldValueForSink(key, value, resolved, seen, depth);
+      out[key] = sanitizeFieldValueForSink(key, value, resolved, seen, depth, inherited);
     }
     return out;
   } finally {
@@ -148,8 +157,13 @@ function sanitizeValueForSink(
   resolved: ResolvedRedactOptions,
   seen: WeakSet<object>,
   depth: number,
+  options?: { allowDirectMask?: boolean },
 ): unknown {
   if (typeof value === "string") {
+    if (options?.allowDirectMask) {
+      const textSanitized = sanitizeStringForSink(value, resolved, { allowDirectMask: true });
+      return textSanitized === value ? maskDirectSecret(value) : textSanitized;
+    }
     return sanitizeStringForSink(value, resolved);
   }
   if (
@@ -171,7 +185,7 @@ function sanitizeValueForSink(
     return sanitizeErrorForSink(value, resolved, seen, depth);
   }
   if (Array.isArray(value)) {
-    return value.map((entry) => sanitizeValueForSink(entry, resolved, seen, depth + 1));
+    return value.map((entry) => sanitizeValueForSink(entry, resolved, seen, depth + 1, options));
   }
   if (typeof value === "object") {
     // Preserve toJSON semantics for objects like URL, Buffer, or custom classes
@@ -183,14 +197,14 @@ function sanitizeValueForSink(
       seen.add(value);
       try {
         const serialized = maybeToJson.call(value);
-        return sanitizeValueForSink(serialized, resolved, seen, depth + 1);
+        return sanitizeValueForSink(serialized, resolved, seen, depth + 1, options);
       } catch {
         // fall through to record sanitization if toJSON throws
       } finally {
         seen.delete(value);
       }
     }
-    return sanitizeRecordForSink(value as JsonLikeRecord, resolved, seen, depth);
+    return sanitizeRecordForSink(value as JsonLikeRecord, resolved, seen, depth, options);
   }
   return value;
 }
