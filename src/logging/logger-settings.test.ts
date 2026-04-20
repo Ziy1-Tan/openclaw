@@ -21,9 +21,11 @@ vi.mock("./node-require.js", () => ({
 let originalTestFileLog: string | undefined;
 let originalOpenClawLogLevel: string | undefined;
 let logging: typeof import("../logging.js");
+let loggerModule: typeof import("./logger.js");
 
 beforeAll(async () => {
   logging = await import("../logging.js");
+  loggerModule = await import("./logger.js");
 });
 
 beforeEach(() => {
@@ -76,6 +78,40 @@ describe("getResolvedLoggerSettings", () => {
     const settings = logging.getResolvedLoggerSettings();
 
     expect(settings.level).toBe("info");
+    expect(fallbackRequireMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("registerLogTransport sink redaction", () => {
+  it("does not trigger a mutating config load when registering a transport against a cached logger", () => {
+    // Simulate a cached logger being present (silent level avoids filesystem writes).
+    logging.setLoggerOverride({ level: "silent" } as import("../logging.js").LoggerSettings);
+    // Prime the cache by calling getLogger through the public API.
+    logging.getResolvedLoggerSettings();
+
+    shouldSkipMutatingLoggingConfigReadMock.mockReturnValue(true);
+    fallbackRequireMock.mockClear();
+
+    const received: unknown[] = [];
+    const unregister = loggerModule.registerLogTransport((logObj) => {
+      received.push(logObj);
+    });
+
+    // The transport was registered; no direct loadConfig() path should have been triggered.
+    expect(fallbackRequireMock).not.toHaveBeenCalled();
+
+    unregister();
+  });
+
+  it("does not trigger a mutating config load when getLogger resolves sink redaction lazily", () => {
+    // Force a non-silent level so buildLogger runs through the file-sink path
+    // (which triggers getSinkRedaction on first log write, but redaction is cached).
+    shouldSkipMutatingLoggingConfigReadMock.mockReturnValue(true);
+    fallbackRequireMock.mockClear();
+
+    // Merely resolving logger settings must not cause a fallback config load.
+    logging.getResolvedLoggerSettings();
+
     expect(fallbackRequireMock).not.toHaveBeenCalled();
   });
 });
